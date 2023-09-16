@@ -1,0 +1,50 @@
+apiVersion: image.toolkit.fluxcd.io/v1alpha1
+kind: ImageRepository
+metadata:
+  name: testapp
+  namespace: testapp
+spec:
+  image: some_private_registry.io/testapp
+  interval: 1m0s
+  secretRef:
+    name: docker-cred
+
+---
+apiVersion: image.toolkit.fluxcd.io/v1alpha1
+kind: ImagePolicy
+metadata:
+  name: testapp
+  namespace: testapp
+spec:
+  imageRepositoryRef:
+    name: testapp
+  policy:
+    alphabetical:
+      order: asc
+  filterTags:
+    pattern: '^v\d+.*$/' # v1.17b
+    extract: '$ts'
+
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta1
+kind: ImageUpdateAutomation
+metadata:
+  name: testapp
+  namespace: testapp
+spec:
+  suspend: false
+  sourceRef:
+    kind: GitRepository
+    name: testapp-chart
+  git:
+    checkout:
+      ref:
+        branch: master
+    commit:
+      author:
+        email: flux@users.noreply.github.com
+        name: flux
+      messageTemplate: 'Image was updated'
+  interval: 1m0s
+  update:
+    strategy: Setters

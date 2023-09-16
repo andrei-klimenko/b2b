@@ -1,0 +1,72 @@
+stages:
+  - lint
+  - test
+  - build
+  - deploy
+
+
+variables:
+  IMAGE_LINT: ${SOME_PRIVATE_REGISTRY}/lint:v1
+  IMAGE_TEST: ${SOME_PRIVATE_REGISTRY}/image_for_tests:v1
+  IMAGE_DIND: ${SOME_PRIVATE_REGISTRY}/docker:24.0.6-dind
+  IMAGE_HELM: ${SOME_PRIVATE_REGISTRY}/alpine/helm:3.12.3
+  
+
+.build:
+  stage: build
+  image: ${IMAGE_DIND}
+  services:
+    - ${IMAGE_DIND}
+  script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - |
+      docker build --tag ${IMAGE_TAG} .
+    - docker push ${IMAGE_NAME}
+
+
+.deploy:
+  image: ${IMAGE_HELM}
+  stage: deploy
+  variables:
+    ENVIRONMENT_FILE: ./env/${CI_ENVIRONMENT_NAME}.yml
+    NAMESPACE: "testapp"
+    RELEASE_NAME: ${CI_PROJECT_NAME}
+  script:
+    - helm repo add --username ${HELM_USER} --password ${HELM_PASSWORD} testapp ${HELM_REPOSITORY_URL}
+    - |
+      helm upgrade ${RELEASE_NAME} ${CHART} \
+        --debug \
+        --install \
+        --kubeconfig $KUBECONFIG \
+        -f ${ENVIRONMENT_FILE} \
+        --namespace ${NAMESPACE} \
+        --set fullnameOverride="${RELEASE_NAME}" \
+        --set image.tag="${IMAGE_NAME}" \
+        --wait
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v\d+.*$/' # v1.17b
+
+lint:app:
+  stage: lint
+  image: ${IMAGE_LINT}
+  script: 
+    - echo "Lint executiorn"
+
+test:app:
+  stage: test
+  image: ${IMAGE_TEST}
+  script: 
+    - echo "Test executiorn"
+
+build:app:
+  extends: .build
+  variables:
+    IMAGE_NAME: ${CI_REGISTRY_IMAGE}/${CI_PROJECT_NAME}:${CI_COMMIT_TAG}
+  environment: dev
+
+deploy:app:
+  extends: .deploy
+  variables:
+    IMAGE_NAME: ${CI_REGISTRY_IMAGE}/${CI_PROJECT_NAME}:${CI_COMMIT_TAG}
+  environment: dev
+

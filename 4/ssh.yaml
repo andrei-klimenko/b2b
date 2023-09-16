@@ -1,0 +1,17 @@
+---
+- name: Add new ssh keys
+  hosts: all
+  gather_facts: false
+  tasks:
+ # - name: Create User
+ #   ansible.builtin.user:
+ #     name: "{{ new_user }}"
+ #     state: present
+ #     shell: /bin/bash
+ #     groups: admins,developers
+ #     append: yes
+  - name: Add pub keys to authorized keys on host
+    ansible.posix.authorized_key:
+      user: "{{ ansible_user }}"
+      state: present
+      key: "{{ lookup('file', './ssh/authorized_keys') }}"

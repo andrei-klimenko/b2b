@@ -1,0 +1,16 @@
+# Set needed version for images and packages
+ARG NODE_VERSION=current-alpine3.18
+
+FROM node:${NODE_VERSION}
+
+# Set working directory
+WORKDIR /app
+
+# Set working directory
+COPY ./src ./app
+
+# Install dependencies
+RUN npm install
+
+# Set cmd
+CMD ["npm", "start"]

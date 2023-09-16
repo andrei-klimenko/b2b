@@ -1,0 +1,39 @@
+---
+- name: Report about connected users
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Find connected users on hosts
+      shell: w -h | awk '{ print "SSH loged in via user -" $1 " ip is - " $3 }'
+      register: ssh_connection
+
+    - name: Get authorized_keys files
+      find:
+        paths: /home/
+        recurse: yes
+        patterns: authorized_keys
+      register: authorized_keys_files
+
+    - name: Read all authorized_keys files
+      shell: cat {{ item.path }}
+      loop: "{{ authorized_keys_files.files  }}"
+      register: data
+
+    - name: Concantinate into one file
+      set_fact:
+        auth_keys: "{{ auth_keys | default('') + item.stdout }}\n"
+      loop: "{{ data.results }}"
+
+    - name: Show msg which will be sent via email
+      debug: 
+        msg: "Current ssh connection \n {{ ssh_connection.stdout }}. Keys on hosts: {{ auth_keys }}"
+
+    - name: Sending an e-mail using Gmail SMTP servers
+      community.general.mail:
+        host: smtp.freesmtpservers.com
+        port: 25
+        to: Andrei Klimenko <zaktoq@gmail.com>
+        subject: Ansible-report
+        body: "Current ssh connection \n {{ ssh_connection.stdout }}. Keys on hosts: {{ auth_keys }}"
+      delegate_to: localhost
+
